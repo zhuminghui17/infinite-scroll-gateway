@@ -5,7 +5,7 @@ const printer = config.mockPrinter
   ? null
   : new ThermalPrinter({
       type: PrinterTypes.EPSON,
-      interface: `tcp://${config.printerIp}:${config.printerPort}`,
+      interface: config.printerInterface,
       width: 48,
       options: { timeout: 5000 },
     });
