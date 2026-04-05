@@ -23,3 +23,46 @@ export async function printScrollLine(deltaY: number): Promise<void> {
   await printer.execute();
   printer.clear();
 }
+
+export async function printText(text: string): Promise<void> {
+  if (!printer) {
+    console.log(`[mock printer] text → "${text}"`);
+    return;
+  }
+
+  printer.alignCenter();
+  printer.println(text);
+  printer.cut();
+  await printer.execute();
+  printer.clear();
+}
+
+export async function printLines(lines: string[]): Promise<void> {
+  if (!printer) {
+    lines.forEach(l => console.log(`[mock printer] ${l}`));
+    return;
+  }
+
+  printer.alignLeft();
+  for (const line of lines) {
+    printer.println(line);
+  }
+  printer.newLine();
+  printer.cut();
+  await printer.execute();
+  printer.clear();
+}
+
+export async function printImage(imagePath: string): Promise<void> {
+  if (!printer) {
+    console.log(`[mock printer] image → "${imagePath}"`);
+    return;
+  }
+
+  printer.alignCenter();
+  await printer.printImage(imagePath);
+  printer.newLine();
+  printer.cut();
+  await printer.execute();
+  printer.clear();
+}
