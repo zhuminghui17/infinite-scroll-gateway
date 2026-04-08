@@ -2,6 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import { config } from './config';
 import scrollRouter from './routes/scroll';
+import { getSession, resetSession } from './services/session';
+import { printSessionEndReceipt, testPrintFullSession } from './services/content';
+import { testPrint } from './services/printer';
 
 const app = express();
 
@@ -13,15 +16,58 @@ app.get('/health', (_req, res) => {
 
 app.use('/scroll', scrollRouter);
 
+app.get('/session', (_req, res) => {
+  const session = getSession();
+  res.json({
+    totalDistance: session.totalDistance,
+    signalCount: session.signalCount,
+    lastSignalAt: session.lastSignalAt,
+    startedAt: session.startedAt,
+  });
+});
+
+app.post('/session/reset', async (_req, res) => {
+  try {
+    const previous = resetSession();
+    const durationMs = (previous.lastSignalAt ?? Date.now()) - previous.startedAt;
+    await printSessionEndReceipt(previous.totalDistance, previous.signalCount, durationMs);
+    res.json({
+      ok: true,
+      previous: {
+        totalDistance: previous.totalDistance,
+        signalCount: previous.signalCount,
+        durationMs,
+      },
+    });
+  } catch (err) {
+    console.error('Session reset error:', err);
+    res.status(500).json({ error: 'Session reset failed' });
+  }
+});
+
 app.post('/test-print', async (req, res) => {
   const { text } = req.body as { text?: string };
-  const { printText } = await import('./services/printer');
   try {
-    await printText(text ?? 'test print');
+    await testPrint(text);
     res.json({ ok: true });
   } catch (err) {
     console.error('Print error:', err);
     res.status(500).json({ error: 'Print failed' });
+  }
+});
+
+app.post('/test-print/full', async (req, res) => {
+  const { repeatCount, totalDistance, durationMs } = req.body as {
+    repeatCount?: number;
+    totalDistance?: number;
+    durationMs?: number;
+  };
+  try {
+    await testPrintFullSession({ repeatCount, totalDistance, durationMs });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Full test print error:', err);
+    res.status(500).json({ error: 'Full test print failed' });
   }
 });
 

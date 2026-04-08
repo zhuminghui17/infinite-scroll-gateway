@@ -37,6 +37,12 @@ export async function printText(text: string): Promise<void> {
   printer.clear();
 }
 
+const DEFAULT_TEST_MESSAGE = 'test print';
+
+export async function testPrint(text: string = DEFAULT_TEST_MESSAGE): Promise<void> {
+  await printText(text);
+}
+
 export async function printLines(lines: string[]): Promise<void> {
   if (!printer) {
     lines.forEach(l => console.log(`[mock printer] ${l}`));
@@ -49,6 +55,20 @@ export async function printLines(lines: string[]): Promise<void> {
   }
   printer.newLine();
   printer.cut();
+  await printer.execute();
+  printer.clear();
+}
+
+export async function printArt(lines: string[]): Promise<void> {
+  if (!printer) {
+    lines.forEach(l => console.log(`[mock printer] ${l}`));
+    return;
+  }
+
+  printer.alignLeft();
+  for (const line of lines) {
+    printer.println(line);
+  }
   await printer.execute();
   printer.clear();
 }
