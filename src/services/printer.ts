@@ -10,6 +10,34 @@ const printer = config.mockPrinter
       options: { timeout: 5000 },
     });
 
+// Async print queue — jobs are drained serially so the printer never gets
+// concurrent execute() calls, and callers don't block on the physical print.
+const queue: (() => Promise<void>)[] = [];
+let draining = false;
+
+async function drain(): Promise<void> {
+  if (draining) return;
+  draining = true;
+  while (queue.length > 0) {
+    const job = queue.shift()!;
+    try {
+      await job();
+    } catch (err) {
+      console.error('[printer queue] job failed:', err);
+    }
+  }
+  draining = false;
+}
+
+export function enqueue(job: () => Promise<void>): void {
+  queue.push(job);
+  drain();
+}
+
+export function getQueueLength(): number {
+  return queue.length;
+}
+
 export async function printScrollLine(deltaY: number): Promise<void> {
   const chars = Math.min(Math.ceil(Math.abs(deltaY) / 10), 48);
   const line = '·'.repeat(chars);

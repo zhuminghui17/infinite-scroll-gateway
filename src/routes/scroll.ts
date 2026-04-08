@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { printArt } from '../services/printer';
+import { printArt, enqueue, getQueueLength } from '../services/printer';
 import { updateSession } from '../services/session';
 import { loadContentLines } from '../services/content';
 
@@ -8,13 +8,9 @@ const router = Router();
 const startLines = loadContentLines('start.txt');
 const repeatLines = loadContentLines('repeat.txt');
 
-async function printLiveScrollPhase(sessionAfterUpdate: { signalCount: number }): Promise<'start' | 'repeat'> {
-  if (sessionAfterUpdate.signalCount === 1) {
-    await printArt(startLines);
-    return 'start';
-  }
-  await printArt(repeatLines);
-  return 'repeat';
+function enqueueLiveScrollPrint(signalCount: number): void {
+  const lines = signalCount === 1 ? startLines : repeatLines;
+  enqueue(() => printArt(lines));
 }
 
 router.post('/', async (req: Request, res: Response) => {
@@ -25,14 +21,15 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  try {
-    const session = updateSession(Math.abs(deltaY));
-    const phase = await printLiveScrollPhase(session);
-    res.json({ ok: true, totalDistance: session.totalDistance, signalCount: session.signalCount, phase });
-  } catch (err) {
-    console.error('Print error:', err);
-    res.status(500).json({ error: 'Print failed' });
-  }
+  const session = updateSession(Math.abs(deltaY));
+  enqueueLiveScrollPrint(session.signalCount);
+  res.json({
+    ok: true,
+    queued: true,
+    totalDistance: session.totalDistance,
+    signalCount: session.signalCount,
+    queueLength: getQueueLength(),
+  });
 });
 
 router.post('/signal', async (req: Request, res: Response) => {
@@ -43,20 +40,15 @@ router.post('/signal', async (req: Request, res: Response) => {
     return;
   }
 
-  try {
-    const session = updateSession(distance);
-    const phase = await printLiveScrollPhase(session);
-
-    res.json({
-      ok: true,
-      totalDistance: session.totalDistance,
-      signalCount: session.signalCount,
-      phase,
-    });
-  } catch (err) {
-    console.error('Signal error:', err);
-    res.status(500).json({ error: 'Signal processing failed' });
-  }
+  const session = updateSession(distance);
+  enqueueLiveScrollPrint(session.signalCount);
+  res.json({
+    ok: true,
+    queued: true,
+    totalDistance: session.totalDistance,
+    signalCount: session.signalCount,
+    queueLength: getQueueLength(),
+  });
 });
 
 export default router;
