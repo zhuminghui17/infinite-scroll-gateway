@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { printLines, enqueue, getQueueLength } from '../services/printer.service';
-import { updateSession } from '../services/session.service';
+import { resetIdleTimer } from '../services/session.service';
 import { loadContentLines } from '../services/content.service';
 
 const router = Router();
@@ -8,45 +8,37 @@ const router = Router();
 const startLines = loadContentLines('start.txt');
 const repeatLines = loadContentLines('repeat.txt');
 
+interface ScrollRequest {
+  deltaY: number;
+  totalDistance: number;
+  signalCount: number;
+  startedAt: number;
+}
+
 function enqueueLiveScrollPrint(signalCount: number): void {
   const lines = signalCount === 1 ? startLines : repeatLines;
   enqueue(() => printLines(lines));
 }
 
 router.post('/', async (req: Request, res: Response) => {
-  const { deltaY } = req.body as { deltaY: number };
+  const { deltaY, totalDistance, signalCount, startedAt } = req.body as ScrollRequest;
 
   if (typeof deltaY !== 'number') {
     res.status(400).json({ error: 'deltaY must be a number' });
     return;
   }
 
-  const session = updateSession(Math.abs(deltaY));
-  enqueueLiveScrollPrint(session.signalCount);
-  res.json({
-    ok: true,
-    queued: true,
-    totalDistance: session.totalDistance,
-    signalCount: session.signalCount,
-    queueLength: getQueueLength(),
-  });
-});
-
-router.post('/signal', async (req: Request, res: Response) => {
-  const { distance } = req.body as { distance: number };
-
-  if (typeof distance !== 'number') {
-    res.status(400).json({ error: 'distance must be a number' });
+  if (typeof signalCount !== 'number' || signalCount < 1) {
+    res.status(400).json({ error: 'signalCount must be a positive number' });
     return;
   }
 
-  const session = updateSession(distance);
-  enqueueLiveScrollPrint(session.signalCount);
+  resetIdleTimer({ totalDistance, signalCount, startedAt });
+  enqueueLiveScrollPrint(signalCount);
+  
   res.json({
     ok: true,
     queued: true,
-    totalDistance: session.totalDistance,
-    signalCount: session.signalCount,
     queueLength: getQueueLength(),
   });
 });

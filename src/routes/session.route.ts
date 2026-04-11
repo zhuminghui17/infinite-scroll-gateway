@@ -1,35 +1,41 @@
 import { Router, Request, Response } from 'express';
-import { getSession, resetSession } from '../services/session.service';
+import { clearSession, hasActiveSession } from '../services/session.service';
 import { printSessionEndReceipt } from '../services/content.service';
 
 const router = Router();
 
+interface EndSessionRequest {
+  totalDistance: number;
+  signalCount: number;
+  durationMs: number;
+}
+
 router.get('/', (_req: Request, res: Response) => {
-  const session = getSession();
   res.json({
-    totalDistance: session.totalDistance,
-    signalCount: session.signalCount,
-    lastSignalAt: session.lastSignalAt,
-    startedAt: session.startedAt,
+    hasActiveSession: hasActiveSession(),
   });
 });
 
-router.post('/reset', async (_req: Request, res: Response) => {
+router.post('/end', async (req: Request, res: Response) => {
+  const { totalDistance, signalCount, durationMs } = req.body as EndSessionRequest;
+
+  if (typeof totalDistance !== 'number' || typeof signalCount !== 'number' || typeof durationMs !== 'number') {
+    res.status(400).json({ error: 'totalDistance, signalCount, and durationMs must be numbers' });
+    return;
+  }
+
   try {
-    const previous = resetSession();
-    const durationMs = (previous.lastSignalAt ?? Date.now()) - previous.startedAt;
-    await printSessionEndReceipt(previous.totalDistance, previous.signalCount, durationMs);
+    clearSession();
+    await printSessionEndReceipt(totalDistance, signalCount, durationMs);
     res.json({
       ok: true,
-      previous: {
-        totalDistance: previous.totalDistance,
-        signalCount: previous.signalCount,
-        durationMs,
-      },
+      totalDistance,
+      signalCount,
+      durationMs,
     });
   } catch (err) {
-    console.error('Session reset error:', err);
-    res.status(500).json({ error: 'Session reset failed' });
+    console.error('Session end error:', err);
+    res.status(500).json({ error: 'Session end failed' });
   }
 });
 
