@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { printArt, printLines } from './printer';
+import { printLines } from './printer';
 
 const CONTENTS_DIR = path.join(__dirname, '..', '..', 'contents');
 
@@ -33,7 +33,7 @@ export async function printSessionEndReceipt(
   durationMs: number,
 ): Promise<void> {
   await printLines(loadContentLines('end.txt'));
-  await printLines(buildSummaryLines(totalDistance, signalCount, durationMs));
+  await printLines(buildSummaryLines(totalDistance, signalCount, durationMs), { cut: true });
 }
 
 export interface TestPrintFullOptions {
@@ -49,9 +49,9 @@ export async function testPrintFullSession(options: TestPrintFullOptions = {}): 
   const durationMs = options.durationMs ?? 60_000;
   const signalCount = 1 + repeatCount;
 
-  await printArt(loadContentLines('start.txt'));
+  await printLines(loadContentLines('start.txt'));
   for (let i = 0; i < repeatCount; i++) {
-    await printArt(loadContentLines('repeat.txt'));
+    await printLines(loadContentLines('repeat.txt'));
   }
   await printSessionEndReceipt(totalDistance, signalCount, durationMs);
 }

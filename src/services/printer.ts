@@ -10,8 +10,6 @@ const printer = config.mockPrinter
       options: { timeout: 5000 },
     });
 
-// Async print queue — jobs are drained serially so the printer never gets
-// concurrent execute() calls, and callers don't block on the physical print.
 const queue: (() => Promise<void>)[] = [];
 let draining = false;
 
@@ -38,28 +36,16 @@ export function getQueueLength(): number {
   return queue.length;
 }
 
-export async function printText(text: string): Promise<void> {
-  if (!printer) {
-    console.log(`[mock printer] text → "${text}"`);
-    return;
-  }
-
-  printer.alignCenter();
-  printer.println(text);
-  printer.cut();
-  await printer.execute();
-  printer.clear();
+export interface PrintOptions {
+  cut?: boolean;
 }
 
-const DEFAULT_TEST_MESSAGE = 'test print';
+export async function printLines(lines: string[], options: PrintOptions = {}): Promise<void> {
+  const { cut = false } = options;
 
-export async function testPrint(text: string = DEFAULT_TEST_MESSAGE): Promise<void> {
-  await printText(text);
-}
-
-export async function printLines(lines: string[]): Promise<void> {
   if (!printer) {
-    lines.forEach(l => console.log(`[mock printer] ${l}`));
+    lines.forEach(l => console.log(`[mock] ${l}`));
+    if (cut) console.log('[mock] --- cut ---');
     return;
   }
 
@@ -67,36 +53,10 @@ export async function printLines(lines: string[]): Promise<void> {
   for (const line of lines) {
     printer.println(line);
   }
-  printer.newLine();
-  printer.cut();
-  await printer.execute();
-  printer.clear();
-}
-
-export async function printArt(lines: string[]): Promise<void> {
-  if (!printer) {
-    lines.forEach(l => console.log(`[mock printer] ${l}`));
-    return;
+  if (cut) {
+    printer.newLine();
+    printer.cut();
   }
-
-  printer.alignLeft();
-  for (const line of lines) {
-    printer.println(line);
-  }
-  await printer.execute();
-  printer.clear();
-}
-
-export async function printImage(imagePath: string): Promise<void> {
-  if (!printer) {
-    console.log(`[mock printer] image → "${imagePath}"`);
-    return;
-  }
-
-  printer.alignCenter();
-  await printer.printImage(imagePath);
-  printer.newLine();
-  printer.cut();
   await printer.execute();
   printer.clear();
 }

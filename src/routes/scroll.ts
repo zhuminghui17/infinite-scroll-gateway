@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { printArt, enqueue, getQueueLength } from '../services/printer';
+import { printLines, enqueue, getQueueLength } from '../services/printer';
 import { updateSession } from '../services/session';
 import { loadContentLines } from '../services/content';
 
@@ -10,7 +10,7 @@ const repeatLines = loadContentLines('repeat.txt');
 
 function enqueueLiveScrollPrint(signalCount: number): void {
   const lines = signalCount === 1 ? startLines : repeatLines;
-  enqueue(() => printArt(lines));
+  enqueue(() => printLines(lines));
 }
 
 router.post('/', async (req: Request, res: Response) => {

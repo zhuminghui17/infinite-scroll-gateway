@@ -17,7 +17,7 @@ router.post('/print-file', async (req: Request, res: Response) => {
   }
   try {
     const lines = loadContentLines(filePath);
-    await printLines(lines);
+    await printLines(lines, { cut: true });
     res.json({ ok: true });
   } catch (err) {
     console.error('Print file error:', err);
