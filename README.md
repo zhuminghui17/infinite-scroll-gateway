@@ -86,11 +86,14 @@ Response:
 
 End the current session. Prints a closing graphic and statistics receipt, then resets the print cursor for the next session.
 
+**SCROLL DEPTH on the receipt uses only `scrollDepthCm`** (computed on the phone with device PPI, same as Scroll Stats). The gateway does not convert pixels to cm.
+
 ```json
 {
   "totalDistance": 12500,
   "signalCount": 42,
-  "durationMs": 180000
+  "durationMs": 180000,
+  "scrollDepthCm": 210.4
 }
 ```
 

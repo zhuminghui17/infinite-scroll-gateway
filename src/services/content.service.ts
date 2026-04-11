@@ -13,13 +13,17 @@ export function buildSummaryLines(
   totalDistance: number,
   signalCount: number,
   durationMs: number,
+  scrollDepthCm: number,
 ): string[] {
+  if (typeof scrollDepthCm !== 'number' || !Number.isFinite(scrollDepthCm)) {
+    throw new Error('scrollDepthCm must be a finite number (from client; device-calibrated)');
+  }
   const raw = fs.readFileSync(path.join(CONTENTS_DIR, 'summary.txt'), 'utf-8');
-  const scrollDepthCm = (totalDistance * 2.54 / 96).toFixed(1);
+  const scrollDepthCmStr = scrollDepthCm.toFixed(1);
   const timeSec = Math.round(durationMs / 1000);
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const filled = raw
-    .replace(/\{\{SCROLL_DEPTH_CM\}\}/g, scrollDepthCm)
+    .replace(/\{\{SCROLL_DEPTH_CM\}\}/g, scrollDepthCmStr)
     .replace(/\{\{TIME_ELAPSED_SEC\}\}/g, String(timeSec))
     .replace(/\{\{TOTAL_DISTANCE_PX\}\}/g, String(Math.round(totalDistance)))
     .replace(/\{\{SIGNAL_COUNT\}\}/g, String(signalCount))
@@ -31,15 +35,18 @@ export async function printSessionEndReceipt(
   totalDistance: number,
   signalCount: number,
   durationMs: number,
+  scrollDepthCm: number,
 ): Promise<void> {
   await printLines(loadContentLines('end.txt'));
-  await printLines(buildSummaryLines(totalDistance, signalCount, durationMs), { cut: true });
+  await printLines(buildSummaryLines(totalDistance, signalCount, durationMs, scrollDepthCm), { cut: true });
 }
 
 export interface TestPrintFullOptions {
   repeatCount?: number;
   totalDistance?: number;
   durationMs?: number;
+  /** Sample depth for demo print only (app sends real device-calibrated cm). */
+  scrollDepthCm?: number;
 }
 
 /** Prints start → repeat (×repeatCount) → end → summary with coherent sample stats. */
@@ -48,10 +55,11 @@ export async function testPrintFullSession(options: TestPrintFullOptions = {}): 
   const totalDistance = options.totalDistance ?? 8000;
   const durationMs = options.durationMs ?? 60_000;
   const signalCount = 1 + repeatCount;
+  const scrollDepthCm = options.scrollDepthCm ?? 120;
 
   await printLines(loadContentLines('start.txt'));
   for (let i = 0; i < repeatCount; i++) {
     await printLines(loadContentLines('repeat.txt'));
   }
-  await printSessionEndReceipt(totalDistance, signalCount, durationMs);
+  await printSessionEndReceipt(totalDistance, signalCount, durationMs, scrollDepthCm);
 }

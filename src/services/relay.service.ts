@@ -21,13 +21,16 @@ async function handleRequest(requestId: string, action: string, payload: any): P
       }
 
       case 'session/end': {
-        const { totalDistance, signalCount, durationMs } = payload;
+        const { totalDistance, signalCount, durationMs, scrollDepthCm } = payload;
         if (typeof totalDistance !== 'number' || typeof signalCount !== 'number' || typeof durationMs !== 'number') {
           return { error: 'totalDistance, signalCount, and durationMs must be numbers' };
         }
-        await printSessionEndReceipt(totalDistance, signalCount, durationMs);
+        if (typeof scrollDepthCm !== 'number' || !Number.isFinite(scrollDepthCm)) {
+          return { error: 'scrollDepthCm must be a finite number (device-calibrated cm from client)' };
+        }
+        await printSessionEndReceipt(totalDistance, signalCount, durationMs, scrollDepthCm);
         resetPrintState();
-        return { ok: true, totalDistance, signalCount, durationMs };
+        return { ok: true, totalDistance, signalCount, durationMs, scrollDepthCm };
       }
 
       case 'health': {
