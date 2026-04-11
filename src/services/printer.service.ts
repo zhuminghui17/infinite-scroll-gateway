@@ -1,4 +1,4 @@
-import { ThermalPrinter, PrinterTypes } from 'node-thermal-printer';
+import { ThermalPrinter, PrinterTypes, CharacterSet } from 'node-thermal-printer';
 import { config } from '../config';
 
 const printer = config.mockPrinter
@@ -6,6 +6,7 @@ const printer = config.mockPrinter
   : new ThermalPrinter({
       type: PrinterTypes.EPSON,
       interface: config.printerInterface,
+      characterSet: CharacterSet.PC437_USA,
       width: 48,
       options: { timeout: 5000 },
     });
