@@ -1,199 +1,140 @@
 # infinite-scroll-gateway
 
-A lightweight Node.js/TypeScript gateway that receives scroll signals from the Expo app and drives a thermal printer via TCP (ESC/POS).
+A Node.js/TypeScript gateway that receives scroll events from the mobile app and drives a thermal printer via ESC/POS. Scrolling on your phone physically prints content — the further you scroll, the more it prints.
+
+## How It Works
+
+The gateway uses **distance-based proportional printing**. Instead of printing a fixed block per scroll event, it maps phone scroll distance to printer output 1:1:
+
+- EPSON thermal printer line height ≈ 3.75mm (30 dots @ 203 DPI)
+- 1 CSS pixel on phone ≈ 0.2646mm
+- **~14px of phone scroll = 1 printed line**
+
+Content is a virtual infinite roll: `start.txt` plays once, then `repeat.txt` loops forever. Session end prints `end.txt` + a statistics receipt.
+
+The ratio is configurable via `SCROLL_TO_PRINT_RATIO` in `src/services/scroll-printer.service.ts`.
 
 ## Setup
 
 ```bash
 npm install
+cp .env.example .env   # edit with your printer IP
 ```
 
 ## Configuration
 
-Set environment variables before starting (or rely on the defaults):
-
-| Variable       | Default         | Description                        |
-|----------------|-----------------|------------------------------------|
-| `PRINTER_IP`   | `192.168.1.100` | Thermal printer IP address         |
-| `PRINTER_PORT` | `9100`          | Thermal printer TCP port (ESC/POS) |
-| `SERVER_PORT`  | `3000`          | HTTP port the gateway listens on   |
-
-Example:
-
-```bash
-PRINTER_IP=192.168.0.55 npm run dev
-```
+| Variable            | Default              | Description                                    |
+|---------------------|----------------------|------------------------------------------------|
+| `PRINTER_INTERFACE` | `tcp://<IP>:<PORT>`  | Printer connection string                      |
+| `PRINTER_IP`        | `192.168.1.100`      | Printer IP (fallback if INTERFACE not set)      |
+| `PRINTER_PORT`      | `9100`               | Printer TCP port                               |
+| `SERVER_PORT`       | `3000`               | HTTP port the gateway listens on               |
+| `MOCK_PRINTER`      | `false`              | `true` to log to console instead of printing   |
+| `USE_RELAY`         | `false`              | `true` to connect to cloud relay via WebSocket |
+| `RELAY_URL`         | —                    | Cloud relay server URL (e.g. Railway)          |
 
 ## Run
 
-Development (ts-node):
-
 ```bash
+# Development
 npm run dev
+
+# Production
+npm run build && npm start
 ```
 
-Production:
+## Modes
 
-```bash
-npm run build
-npm start
+### Direct Mode (default)
+
+Phone → HTTP → Gateway → Printer
+
+Phone and gateway must be on the same network.
+
+### Relay Mode
+
+Phone → Cloud Relay → WebSocket → Gateway → Printer
+
+Phone and gateway can be on different networks. The gateway connects outbound to the relay server, so no port forwarding or static IP needed.
+
+```env
+USE_RELAY=true
+RELAY_URL=https://your-relay.railway.app
 ```
 
 ## API
 
 ### `POST /scroll`
 
-Receives a scroll event and prints a proportional line on the thermal printer.
+Send a scroll event. The gateway advances the print cursor proportionally.
 
-**Body** (JSON):
+```json
+{ "deltaY": 280 }
+```
+
+- Only `deltaY` (number) is required
+- Only downward scroll (positive deltaY) triggers printing
+- Capped at 20 lines per batch
+
+Response:
+
+```json
+{ "ok": true, "queued": true, "queueLength": 0 }
+```
+
+### `POST /session/end`
+
+End the current session. Prints a closing graphic and statistics receipt, then resets the print cursor for the next session.
 
 ```json
 {
-  "type": "scroll",
-  "deltaY": 42,
-  "scrollY": 1200,
-  "timestamp": 1711000000000,
-  "url": "https://example.com"
+  "totalDistance": 12500,
+  "signalCount": 42,
+  "durationMs": 180000
 }
-```
-
-Only `deltaY` (number) is required. The absolute value is mapped to a line of characters proportional to the scroll distance (1 char per 10 px, capped at 48).
-
-**Response** `200`:
-
-```json
-{ "ok": true }
 ```
 
 ### `GET /health`
 
-Returns `{ "ok": true }` — useful for checking the gateway is reachable.
-
-## Deployment
-
-### Phase 1 — Development & First Exhibition (Mac + iPhone Hotspot)
-
-One phone does everything. No routers, no venue Wi-Fi, no extra hardware needed.
-
-```
-iPhone
-  ├── Cellular (4G/5G) ──► Internet (browse social media, generate scrolls)
-  ├── Opens Wi-Fi Hotspot
-  ├── Sends scroll signals via hotspot ──► Mac (gateway) ──ETH/USB──► Printer
-  └── Mac + Printer both connect to the same hotspot
+```json
+{ "ok": true, "mode": "relay" }
 ```
 
-**Hardware:**
-- MacBook (runs the gateway)
-- Thermal printer with Ethernet port (e.g. VRETTI M817) — connected to Mac via Ethernet cable
-- USB-C to Ethernet adapter (~$15) if MacBook has no Ethernet port
+### `POST /print-file`
 
-**Printer connection options (set in `.env`):**
+Print a specific content file directly (for testing).
 
-```env
-# Ethernet (recommended — no driver needed)
-PRINTER_INTERFACE=tcp://192.168.1.100:9100
-
-# USB (printer plugged directly into Mac — requires printer driver from USB disk)
-# PRINTER_INTERFACE=printer:auto
+```json
+{ "path": "start.txt" }
 ```
 
-**Steps:**
+## Content Files
 
-1. iPhone: Settings → Personal Hotspot → Allow Others to Join → on
-2. Connect Mac to the iPhone hotspot Wi-Fi
-3. Connect printer to Mac via Ethernet cable (or USB)
-4. Print a self-test page (hold Feed button on power-on) to find the printer's IP
-5. Update `.env` with the printer IP, start the gateway:
-   ```bash
-   npm run dev
-   ```
-6. Find Mac's hotspot IP: System Settings → Wi-Fi → Details
-7. Point the Expo app to `http://<mac-ip>:3000`
+Located in `contents/`:
 
-**Why this works at school/venues:**
-- No dependency on venue Wi-Fi or AP Isolation
-- iPhone browses real internet via cellular, hosts the local network
-- Printer talks directly to Mac over a cable — no Wi-Fi needed for the printer
-- Entire setup: one phone + one Mac + one printer + two power outlets
+| File           | Purpose                                |
+|----------------|----------------------------------------|
+| `start.txt`    | Printed once at the start of a session |
+| `repeat.txt`   | Loops infinitely as user scrolls       |
+| `end.txt`      | Printed when session ends              |
+| `summary.txt`  | Statistics receipt (templated)         |
 
----
-
-### Phase 2 — Permanent Installation (Raspberry Pi + Cloud DB)
-
-Fully autonomous setup. No Mac needed. Phone and printer can be anywhere.
+## Architecture
 
 ```
-iPhone ──4G/5G──► Firebase Realtime DB
-                        │
-                  Pi listens (WebSocket)
-                        │
-              Pi (gateway) ──USB──► Printer
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│  Mobile App │─────►│ Cloud Relay │─────►│   Gateway   │──► Printer
+│  (Expo)     │ HTTP │ (Railway)   │  WS  │ (Mac / Pi)  │    ESC/POS
+└─────────────┘      └─────────────┘      └─────────────┘
+                           OR
+┌─────────────┐      ┌─────────────┐
+│  Mobile App │─────►│   Gateway   │──► Printer
+│  (Expo)     │ HTTP │ (Mac / Pi)  │    ESC/POS
+└─────────────┘      └─────────────┘
 ```
-
-**Hardware:**
-- Raspberry Pi 4 (~$55) running the gateway 24/7
-- USB thermal printer plugged into Pi
-- Pi connects to Wi-Fi, Pi stays on-site with the printer
-
-**Why this is better for long-term:**
-- No Mac needs to be left running
-- iPhone user can be anywhere — scrolls from home, printer outputs in gallery
-- Multiple phones can contribute scroll data simultaneously
-- Pi boots automatically on power, no manual intervention
-
-**Stack addition needed:**
-- Firebase Realtime DB (free tier) for scroll event relay
-- Pi-side listener replaces the HTTP `/scroll` endpoint
-
-> This phase is not yet implemented. The current gateway uses HTTP POST. Cloud DB integration will be added as a future module without changing the existing code structure.
-
-#### Phase 2 Implementation Plan (Supabase)
-
-**1. Supabase setup**
-- Create a free project at [supabase.com](https://supabase.com)
-- Create a `scroll_events` table:
-  ```sql
-  create table scroll_events (
-    id bigint generated always as identity primary key,
-    delta_y float not null,
-    scroll_y float,
-    url text,
-    inserted_at timestamptz default now()
-  );
-  ```
-- Enable Realtime on the table: Table Editor → `scroll_events` → Realtime on
-
-**2. Mobile app (`scroll-tracker-browser`)**
-- Install `@supabase/supabase-js`
-- On each scroll event, insert a row instead of (or in addition to) HTTP POST:
-  ```ts
-  await supabase.from('scroll_events').insert({ delta_y: deltaY, scroll_y: scrollY, url })
-  ```
-
-**3. Gateway on Pi (`infinite-scroll-gateway`)**
-- Install `@supabase/supabase-js`
-- Add `src/listeners/supabase.ts` — subscribes to new inserts, calls `printScrollLine`:
-  ```ts
-  supabase.channel('scrolls')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'scroll_events' },
-      (payload) => printScrollLine(payload.new.delta_y))
-    .subscribe()
-  ```
-- Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` to `.env`
-- Import the listener in `src/index.ts` alongside the existing HTTP server
-
-**The HTTP `/scroll` endpoint stays intact** — Phase 1 and Phase 2 can run simultaneously.
-
----
 
 ## Printer Requirements
 
-- ESC/POS-compatible thermal printer (Epson, Rongta, etc.)
-- Connected to the same local network as the gateway
-- Raw TCP printing enabled on port 9100
-
-## Notes
-
-- The mobile app (`scroll-tracker-browser`) does not yet POST to this gateway. A `fetch` call sending `ScrollEvent` JSON to `http://<gateway-ip>:3000/scroll` needs to be added to `BrowserView.tsx` in that project.
-- Printer type defaults to `EPSON`. Change `PrinterTypes.EPSON` in `src/services/printer.ts` if using a Star printer.
+- ESC/POS-compatible thermal printer (Epson, VRETTI, Rongta, etc.)
+- Connected via Ethernet (TCP port 9100) or USB
+- 80mm paper width (48 char columns)
