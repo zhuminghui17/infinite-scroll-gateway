@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import { config } from '../config';
-import { printLines, enqueue, getQueueLength } from './printer.service';
+import { printLines, enqueue, getQueueLength, isPrinterOnline } from './printer.service';
 import { loadContentLines, printSessionEndReceipt } from './content.service';
 
 const startLines = loadContentLines('start.txt');
@@ -34,6 +34,11 @@ async function handleRequest(requestId: string, action: string, payload: any): P
         }
         await printSessionEndReceipt(totalDistance, signalCount, durationMs);
         return { ok: true, totalDistance, signalCount, durationMs };
+      }
+
+      case 'health': {
+        const online = await isPrinterOnline();
+        return { ok: true, printerOnline: online };
       }
 
       case 'print/test': {

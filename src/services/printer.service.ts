@@ -41,6 +41,15 @@ export interface PrintOptions {
   cut?: boolean;
 }
 
+export async function isPrinterOnline(): Promise<boolean> {
+  if (!printer) return true; // mock printer is always "online"
+  try {
+    return await printer.isPrinterConnected();
+  } catch {
+    return false;
+  }
+}
+
 export async function printLines(lines: string[], options: PrintOptions = {}): Promise<void> {
   const { cut = false } = options;
 
