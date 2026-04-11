@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { printLines } from './printer';
+import { printLines } from './printer.service';
 
 const CONTENTS_DIR = path.join(__dirname, '..', '..', 'contents');
 

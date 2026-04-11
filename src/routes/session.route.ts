@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { getSession, resetSession } from '../services/session';
-import { printSessionEndReceipt } from '../services/content';
+import { getSession, resetSession } from '../services/session.service';
+import { printSessionEndReceipt } from '../services/content.service';
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { printLines } from '../services/printer';
-import { loadContentLines } from '../services/content';
+import { printLines } from '../services/printer.service';
+import { loadContentLines } from '../services/content.service';
 
 const router = Router();
 

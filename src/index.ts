@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import { config } from './config';
-import scrollRouter from './routes/scroll';
-import sessionRouter from './routes/session';
-import printRouter from './routes/print';
+import scrollRouter from './routes/scroll.route';
+import sessionRouter from './routes/session.route';
+import printRouter from './routes/print.route';
 
 const app = express();
 app.use(express.json());

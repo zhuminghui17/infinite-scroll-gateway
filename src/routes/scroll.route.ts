@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { printLines, enqueue, getQueueLength } from '../services/printer';
-import { updateSession } from '../services/session';
-import { loadContentLines } from '../services/content';
+import { printLines, enqueue, getQueueLength } from '../services/printer.service';
+import { updateSession } from '../services/session.service';
+import { loadContentLines } from '../services/content.service';
 
 const router = Router();
 
