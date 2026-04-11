@@ -1,29 +1,22 @@
 import WebSocket from 'ws';
 import { config } from '../config';
-import { printLines, enqueue, getQueueLength, isPrinterOnline } from './printer.service';
-import { loadContentLines, printSessionEndReceipt } from './content.service';
-
-const startLines = loadContentLines('start.txt');
-const repeatLines = loadContentLines('repeat.txt');
+import { getQueueLength, isPrinterOnline } from './printer.service';
+import { printSessionEndReceipt } from './content.service';
+import { advanceByPixels, resetPrintState } from './scroll-printer.service';
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 const RECONNECT_DELAY = 5000;
 
-function enqueueLiveScrollPrint(signalCount: number): void {
-  const lines = signalCount === 1 ? startLines : repeatLines;
-  enqueue(() => printLines(lines));
-}
-
 async function handleRequest(requestId: string, action: string, payload: any): Promise<any> {
   try {
     switch (action) {
       case 'scroll': {
-        const { signalCount } = payload;
-        if (typeof signalCount !== 'number' || signalCount < 1) {
-          return { error: 'signalCount must be a positive number' };
+        const { deltaY } = payload;
+        if (typeof deltaY !== 'number') {
+          return { error: 'deltaY must be a number' };
         }
-        enqueueLiveScrollPrint(signalCount);
+        advanceByPixels(deltaY);
         return { ok: true, queued: true, queueLength: getQueueLength() };
       }
 
@@ -33,6 +26,7 @@ async function handleRequest(requestId: string, action: string, payload: any): P
           return { error: 'totalDistance, signalCount, and durationMs must be numbers' };
         }
         await printSessionEndReceipt(totalDistance, signalCount, durationMs);
+        resetPrintState();
         return { ok: true, totalDistance, signalCount, durationMs };
       }
 

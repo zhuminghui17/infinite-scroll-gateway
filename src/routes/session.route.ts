@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { clearSession, hasActiveSession } from '../services/session.service';
 import { printSessionEndReceipt } from '../services/content.service';
+import { resetPrintState } from '../services/scroll-printer.service';
 
 const router = Router();
 
@@ -9,12 +9,6 @@ interface EndSessionRequest {
   signalCount: number;
   durationMs: number;
 }
-
-router.get('/', (_req: Request, res: Response) => {
-  res.json({
-    hasActiveSession: hasActiveSession(),
-  });
-});
 
 router.post('/end', async (req: Request, res: Response) => {
   const { totalDistance, signalCount, durationMs } = req.body as EndSessionRequest;
@@ -25,14 +19,9 @@ router.post('/end', async (req: Request, res: Response) => {
   }
 
   try {
-    clearSession();
     await printSessionEndReceipt(totalDistance, signalCount, durationMs);
-    res.json({
-      ok: true,
-      totalDistance,
-      signalCount,
-      durationMs,
-    });
+    resetPrintState();
+    res.json({ ok: true, totalDistance, signalCount, durationMs });
   } catch (err) {
     console.error('Session end error:', err);
     res.status(500).json({ error: 'Session end failed' });
