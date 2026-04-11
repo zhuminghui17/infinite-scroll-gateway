@@ -14,7 +14,6 @@
     "node-thermal-printer": "^4.6.0"
   },
   "devDependencies": {
-    "@types/dotenv": "^6.1.1",
     "@types/express": "^4.17.21",
     "@types/node": "^22.13.10",
     "ts-node": "^10.9.2",

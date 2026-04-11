@@ -38,20 +38,6 @@ export function getQueueLength(): number {
   return queue.length;
 }
 
-export async function printScrollLine(deltaY: number): Promise<void> {
-  const chars = Math.min(Math.ceil(Math.abs(deltaY) / 10), 48);
-  const line = '·'.repeat(chars);
-
-  if (!printer) {
-    console.log(`[mock printer] deltaY=${deltaY} → "${line}"`);
-    return;
-  }
-
-  printer.println(line);
-  await printer.execute();
-  printer.clear();
-}
-
 export async function printText(text: string): Promise<void> {
   if (!printer) {
     console.log(`[mock printer] text → "${text}"`);

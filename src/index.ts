@@ -101,5 +101,5 @@ app.post('/print-image', async (req, res) => {
 
 app.listen(config.serverPort, () => {
   console.log(`Gateway listening on port ${config.serverPort}`);
-  console.log(`Printer: tcp://${config.printerIp}:${config.printerPort}`);
+  console.log(`Printer: ${config.mockPrinter ? 'mock (console)' : config.printerInterface}`);
 });
