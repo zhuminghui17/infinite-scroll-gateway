@@ -7,4 +7,6 @@ export const config = {
   printerInterface: process.env.PRINTER_INTERFACE ?? `tcp://${printerIp}:${printerPort}`,
   serverPort: Number(process.env.SERVER_PORT ?? 3000),
   mockPrinter: process.env.MOCK_PRINTER === 'true',
+  relayUrl: process.env.RELAY_URL ?? '',
+  useRelay: process.env.USE_RELAY === 'true',
 };
