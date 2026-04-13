@@ -86,7 +86,7 @@ Response:
 
 End the current session. Prints a closing graphic and statistics receipt, then resets the print cursor for the next session.
 
-**SCROLL DEPTH on the receipt uses only `scrollDepthCm`** (computed on the phone with device PPI, same as Scroll Stats). The gateway does not convert pixels to cm.
+**`scrollDepthCm`** is this print session’s scroll (device PPI). **`accumulatedDistanceCm`** is the app-wide total distance (same aggregate as the Scroll Stats “Distance” card). The gateway does not convert pixels to cm.
 
 ```json
 {
@@ -94,11 +94,12 @@ End the current session. Prints a closing graphic and statistics receipt, then r
   "signalCount": 42,
   "durationMs": 180000,
   "scrollDepthCm": 210.4,
+  "accumulatedDistanceCm": 15240.2,
   "scrollTouchCount": 320
 }
 ```
 
-Optional `scrollTouchCount` (thumb touch-move events during the session) defaults to `signalCount` if omitted.
+Optional `accumulatedDistanceCm` defaults to `scrollDepthCm` if omitted. Optional `scrollTouchCount` (thumb touch-move events during the session) defaults to `signalCount` if omitted.
 
 ### `GET /health`
 

@@ -14,13 +14,17 @@ export async function printSessionEndReceipt(
   durationMs: number,
   scrollDepthCm: number,
   scrollTouches: number,
+  accumulatedDistanceCm: number,
 ): Promise<void> {
   if (typeof scrollDepthCm !== 'number' || !Number.isFinite(scrollDepthCm)) {
     throw new Error('scrollDepthCm must be a finite number (from client; device-calibrated)');
   }
+  if (typeof accumulatedDistanceCm !== 'number' || !Number.isFinite(accumulatedDistanceCm)) {
+    throw new Error('accumulatedDistanceCm must be a finite number');
+  }
   await printLines(loadContentLines('end.txt'));
   await printLines(
-    buildReceiptLines({ scrollDepthCm, durationMs, scrollTouches }),
+    buildReceiptLines({ scrollDepthCm, accumulatedDistanceCm, durationMs, scrollTouches }),
     { cut: true },
   );
 }
@@ -46,5 +50,5 @@ export async function testPrintFullSession(options: TestPrintFullOptions = {}): 
   for (let i = 0; i < repeatCount; i++) {
     await printLines(loadContentLines('repeat.txt'));
   }
-  await printSessionEndReceipt(durationMs, scrollDepthCm, scrollTouches);
+  await printSessionEndReceipt(durationMs, scrollDepthCm, scrollTouches, scrollDepthCm);
 }

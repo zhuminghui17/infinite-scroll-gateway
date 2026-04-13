@@ -21,20 +21,33 @@ async function handleRequest(requestId: string, action: string, payload: any): P
       }
 
       case 'session/end': {
-        const { totalDistance, signalCount, durationMs, scrollDepthCm, scrollTouchCount } = payload;
+        const { totalDistance, signalCount, durationMs, scrollDepthCm, accumulatedDistanceCm, scrollTouchCount } =
+          payload;
         if (typeof totalDistance !== 'number' || typeof signalCount !== 'number' || typeof durationMs !== 'number') {
           return { error: 'totalDistance, signalCount, and durationMs must be numbers' };
         }
         if (typeof scrollDepthCm !== 'number' || !Number.isFinite(scrollDepthCm)) {
           return { error: 'scrollDepthCm must be a finite number (device-calibrated cm from client)' };
         }
+        const accumulated =
+          typeof accumulatedDistanceCm === 'number' && Number.isFinite(accumulatedDistanceCm) && accumulatedDistanceCm >= 0
+            ? accumulatedDistanceCm
+            : scrollDepthCm;
         const touches =
           typeof scrollTouchCount === 'number' && Number.isFinite(scrollTouchCount) && scrollTouchCount >= 0
             ? scrollTouchCount
             : signalCount;
-        await printSessionEndReceipt(durationMs, scrollDepthCm, touches);
+        await printSessionEndReceipt(durationMs, scrollDepthCm, touches, accumulated);
         resetPrintState();
-        return { ok: true, totalDistance, signalCount, durationMs, scrollDepthCm, scrollTouchCount: touches };
+        return {
+          ok: true,
+          totalDistance,
+          signalCount,
+          durationMs,
+          scrollDepthCm,
+          accumulatedDistanceCm: accumulated,
+          scrollTouchCount: touches,
+        };
       }
 
       case 'health': {

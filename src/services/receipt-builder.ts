@@ -94,7 +94,10 @@ function pickN<T>(items: T[], n: number, rng: () => number): T[] {
 }
 
 export interface ReceiptInput {
+  /** Print-session scroll depth (cm), from client PPI. */
   scrollDepthCm: number;
+  /** Lifetime / app total scroll distance (cm), same basis as Scroll Stats “Distance”. */
+  accumulatedDistanceCm: number;
   durationMs: number;
   scrollTouches: number;
   rng?: () => number;
@@ -193,9 +196,12 @@ const INTENTION_POOL: ReceiptKV[] = [
 
 export function buildReceiptLines(input: ReceiptInput): string[] {
   const rng = input.rng ?? rngDefault;
-  const { scrollDepthCm, durationMs, scrollTouches } = input;
+  const { scrollDepthCm, accumulatedDistanceCm, durationMs, scrollTouches } = input;
   if (typeof scrollDepthCm !== 'number' || !Number.isFinite(scrollDepthCm)) {
     throw new Error('scrollDepthCm must be a finite number');
+  }
+  if (typeof accumulatedDistanceCm !== 'number' || !Number.isFinite(accumulatedDistanceCm)) {
+    throw new Error('accumulatedDistanceCm must be a finite number');
   }
   const timeElapsedSec = Math.round(durationMs / 1000);
   const minutes = durationMs / 60_000;
@@ -212,9 +218,9 @@ export function buildReceiptLines(input: ReceiptInput): string[] {
   lines.push(centerLine(date));
   lines.push(SEP_EQ);
   const depthStr = `${scrollDepthCm.toFixed(1)} cm`;
+  const accumulatedStr = `${accumulatedDistanceCm.toFixed(1)} cm`;
   lines.push(receiptRow('YOUR SCROLL DISTANCE', depthStr));
   lines.push(receiptRow('TIME ELAPSED', `${timeElapsedSec} seconds`));
-  lines.push(receiptRow('ACCUMULATED DISTANCE', depthStr));
   lines.push(SEP_DASH);
 
   const bodyPicks = selectBodyRows(minutes, scrollTouches, rng);
@@ -255,6 +261,8 @@ export function buildReceiptLines(input: ReceiptInput): string[] {
     lines.push(line);
   }
   lines.push('');
+  lines.push(SEP_EQ);
+  lines.push(receiptRow('ACCUMULATED DISTANCE', accumulatedStr));
   lines.push(SEP_EQ);
   lines.push(centerLine('No refunds. No exchanges.'));
   lines.push(SEP_EQ);
