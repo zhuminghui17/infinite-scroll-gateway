@@ -1,4 +1,47 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 const RECEIPT_WIDTH = 48;
+
+const MILESTONES_DIR = path.join(__dirname, '..', '..', 'contents', 'milestones');
+
+/** Half-open tiers [min, max) in cm; final tier is [500, ∞). */
+const MILESTONE_TIERS: { min: number; max: number; file: string }[] = [
+  { min: 0, max: 15, file: 'dandelion.txt' },
+  { min: 15, max: 20, file: 'book.txt' },
+  { min: 20, max: 30, file: 'banana.txt' },
+  { min: 30, max: 35, file: 'flower.txt' },
+  { min: 35, max: 40, file: 'bowling.txt' },
+  { min: 40, max: 50, file: 'cat.txt' },
+  { min: 50, max: 70, file: 'dog.txt' },
+  { min: 70, max: 77, file: 'golden_retriever.txt' },
+  { min: 77, max: 100, file: 'mona_lisa.txt' },
+  { min: 100, max: 110, file: 'guitar.txt' },
+  { min: 110, max: 120, file: 'boy.txt' },
+  { min: 120, max: 140, file: 'broom.txt' },
+  { min: 140, max: 170, file: 'piano.txt' },
+  { min: 170, max: 200, file: 'sunflower.txt' },
+  { min: 200, max: 250, file: 'bed.txt' },
+  { min: 250, max: 350, file: 'ploar_bear.txt' },
+  { min: 350, max: 430, file: 'car.txt' },
+  { min: 430, max: 500, file: 'house.txt' },
+  { min: 500, max: Number.POSITIVE_INFINITY, file: 'giraffe.txt' },
+];
+
+export function milestoneFilenameForDepth(scrollDepthCm: number): string {
+  const d = Math.max(0, scrollDepthCm);
+  for (const t of MILESTONE_TIERS) {
+    if (d >= t.min && d < t.max) return t.file;
+  }
+  return 'giraffe.txt';
+}
+
+function loadMilestoneArtLines(scrollDepthCm: number): string[] {
+  const file = milestoneFilenameForDepth(scrollDepthCm);
+  const fullPath = path.join(MILESTONES_DIR, file);
+  const raw = fs.readFileSync(fullPath, 'utf8').replace(/\r\n/g, '\n');
+  return raw.replace(/\n$/, '').split('\n');
+}
 
 export function receiptRow(leftLabel: string, rightValue: string, width = RECEIPT_WIDTH): string {
   const rv = rightValue.trim();
@@ -55,6 +98,8 @@ export interface ReceiptInput {
   durationMs: number;
   scrollTouches: number;
   rng?: () => number;
+  /** Override milestone ASCII (e.g. tests); default loads from contents/milestones by depth. */
+  milestoneLines?: string[];
 }
 
 interface ReceiptKV {
@@ -62,13 +107,24 @@ interface ReceiptKV {
   value: string;
 }
 
-function bodyPool(minutes: number, scrollTouches: number): ReceiptKV[] {
+/**
+ * EYES + SHOULD count as one outcome; each rest line is another outcome.
+ * P(blink pair) = 1 / (1 + restPool.length); else two random distinct rest lines.
+ */
+function selectBodyRows(minutes: number, scrollTouches: number, rng: () => number): ReceiptKV[] {
   const m = minutes;
   const t = scrollTouches;
-  return [
-    { label: 'EYES BLINKED', value: `${Math.round(15 * m)} times` },
-    { label: 'SHOULD HAVE BLINKED', value: `${Math.round(22 * m)} times` },
-    { label: 'BLINKS SKIPPED', value: `${Math.max(0, Math.round(22 * m - 15 * m))} times` },
+  const eyesBlinked = Math.round(15 * m);
+  const shouldHaveBlinked = Math.round(22 * m);
+  const blinksSkipped = Math.max(0, shouldHaveBlinked - eyesBlinked);
+
+  const blinkPair: ReceiptKV[] = [
+    { label: 'EYES BLINKED', value: `${eyesBlinked} times` },
+    { label: 'SHOULD HAVE BLINKED', value: `${shouldHaveBlinked} times` },
+  ];
+
+  const restPool: ReceiptKV[] = [
+    { label: 'BLINKS SKIPPED', value: `${blinksSkipped} times` },
     { label: 'DRY EYE WARNING', value: 'active' },
     { label: 'DRY EYE STATUS', value: 'forming' },
     { label: 'FOCUS MUSCLES', value: 'engaged' },
@@ -79,6 +135,12 @@ function bodyPool(minutes: number, scrollTouches: number): ReceiptKV[] {
     { label: 'NECK ANGLE', value: '~45 degrees' },
     { label: 'MELATONIN SUPPRESSION', value: 'pending' },
   ];
+
+  const slot = Math.floor(rng() * (1 + restPool.length));
+  if (slot === 0) {
+    return blinkPair;
+  }
+  return pickN(restPool, 2, rng);
 }
 
 function environmentPool(minutes: number): ReceiptKV[] {
@@ -96,7 +158,7 @@ function dataMonPool(scrollTouches: number): ReceiptKV[] {
   const revenue = (t / 5) * 0.00025;
   return [
     { label: 'AD REVENUE', value: `$${revenue.toFixed(6)}` },
-    { label: 'AD IMPRESSIONS', value: `${(t / 3).toFixed(1)}` },
+    { label: 'AD IMPRESSIONS', value: String(Math.round(t / 3)) },
     { label: 'ALGORITHM CONFIDENCE', value: 'increasing' },
   ];
 }
@@ -105,7 +167,7 @@ function displacementPool(scrollDepthCm: number, minutes: number): ReceiptKV[] {
   const candidates: ReceiptKV[] = [];
   const steps = scrollDepthCm / 60;
   if (steps > 3) {
-    candidates.push({ label: 'WALK (NOT TAKEN)', value: `${steps.toFixed(0)} steps` });
+    candidates.push({ label: 'WALK (NOT TAKEN)', value: `${Math.round(steps)} steps` });
   }
   const miles = scrollDepthCm / 160934;
   if (miles > 0.5) {
@@ -155,7 +217,7 @@ export function buildReceiptLines(input: ReceiptInput): string[] {
   lines.push(receiptRow('ACCUMULATED DISTANCE', depthStr));
   lines.push(SEP_DASH);
 
-  const bodyPicks = pickN(bodyPool(minutes, scrollTouches), 2, rng);
+  const bodyPicks = selectBodyRows(minutes, scrollTouches, rng);
   for (const row of bodyPicks) {
     lines.push(receiptRow(row.label, row.value));
   }
@@ -188,9 +250,10 @@ export function buildReceiptLines(input: ReceiptInput): string[] {
   lines.push(SEP_DASH);
   lines.push('');
   lines.push(centerLine('You have scrolled'));
-  lines.push('');
-  lines.push(centerLine('[ MILESTONE + ASCII ART ]'));
-  lines.push(centerLine('(placeholder)'));
+  const milestoneLines = input.milestoneLines ?? loadMilestoneArtLines(scrollDepthCm);
+  for (const line of milestoneLines) {
+    lines.push(line);
+  }
   lines.push('');
   lines.push(SEP_EQ);
   lines.push(centerLine('No refunds. No exchanges.'));
