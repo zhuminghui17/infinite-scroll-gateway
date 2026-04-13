@@ -21,16 +21,20 @@ async function handleRequest(requestId: string, action: string, payload: any): P
       }
 
       case 'session/end': {
-        const { totalDistance, signalCount, durationMs, scrollDepthCm } = payload;
+        const { totalDistance, signalCount, durationMs, scrollDepthCm, scrollTouchCount } = payload;
         if (typeof totalDistance !== 'number' || typeof signalCount !== 'number' || typeof durationMs !== 'number') {
           return { error: 'totalDistance, signalCount, and durationMs must be numbers' };
         }
         if (typeof scrollDepthCm !== 'number' || !Number.isFinite(scrollDepthCm)) {
           return { error: 'scrollDepthCm must be a finite number (device-calibrated cm from client)' };
         }
-        await printSessionEndReceipt(totalDistance, signalCount, durationMs, scrollDepthCm);
+        const touches =
+          typeof scrollTouchCount === 'number' && Number.isFinite(scrollTouchCount) && scrollTouchCount >= 0
+            ? scrollTouchCount
+            : signalCount;
+        await printSessionEndReceipt(durationMs, scrollDepthCm, touches);
         resetPrintState();
-        return { ok: true, totalDistance, signalCount, durationMs, scrollDepthCm };
+        return { ok: true, totalDistance, signalCount, durationMs, scrollDepthCm, scrollTouchCount: touches };
       }
 
       case 'health': {

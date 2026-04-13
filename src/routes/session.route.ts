@@ -10,10 +10,12 @@ interface EndSessionRequest {
   durationMs: number;
   /** Physical scroll depth in cm — must be computed on the client (device PPI); used as sole source for receipt. */
   scrollDepthCm: number;
+  /** Thumb/scroll touch events; defaults to signalCount if omitted. */
+  scrollTouchCount?: number;
 }
 
 router.post('/end', async (req: Request, res: Response) => {
-  const { totalDistance, signalCount, durationMs, scrollDepthCm } = req.body as EndSessionRequest;
+  const { totalDistance, signalCount, durationMs, scrollDepthCm, scrollTouchCount } = req.body as EndSessionRequest;
 
   if (typeof totalDistance !== 'number' || typeof signalCount !== 'number' || typeof durationMs !== 'number') {
     res.status(400).json({ error: 'totalDistance, signalCount, and durationMs must be numbers' });
@@ -25,10 +27,15 @@ router.post('/end', async (req: Request, res: Response) => {
     return;
   }
 
+  const touches =
+    typeof scrollTouchCount === 'number' && Number.isFinite(scrollTouchCount) && scrollTouchCount >= 0
+      ? scrollTouchCount
+      : signalCount;
+
   try {
-    await printSessionEndReceipt(totalDistance, signalCount, durationMs, scrollDepthCm);
+    await printSessionEndReceipt(durationMs, scrollDepthCm, touches);
     resetPrintState();
-    res.json({ ok: true, totalDistance, signalCount, durationMs, scrollDepthCm });
+    res.json({ ok: true, totalDistance, signalCount, durationMs, scrollDepthCm, scrollTouchCount: touches });
   } catch (err) {
     console.error('Session end error:', err);
     res.status(500).json({ error: 'Session end failed' });

@@ -93,9 +93,12 @@ End the current session. Prints a closing graphic and statistics receipt, then r
   "totalDistance": 12500,
   "signalCount": 42,
   "durationMs": 180000,
-  "scrollDepthCm": 210.4
+  "scrollDepthCm": 210.4,
+  "scrollTouchCount": 320
 }
 ```
+
+Optional `scrollTouchCount` (thumb touch-move events during the session) defaults to `signalCount` if omitted.
 
 ### `GET /health`
 
@@ -120,7 +123,7 @@ Located in `contents/`:
 | `start.txt`    | Printed once at the start of a session |
 | `repeat.txt`   | Loops infinitely as user scrolls       |
 | `end.txt`      | Printed when session ends              |
-| `summary.txt`  | Statistics receipt (templated)         |
+| `summary.txt`  | Note only; session receipt is built in code |
 
 ## Architecture
 
