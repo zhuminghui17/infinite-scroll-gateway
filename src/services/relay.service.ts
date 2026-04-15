@@ -2,7 +2,7 @@ import WebSocket from 'ws';
 import { config } from '../config';
 import { getQueueLength, isPrinterOnline } from './printer.service';
 import { printSessionEndReceipt } from './content.service';
-import { advanceByPixels, resetPrintState } from './scroll-printer.service';
+import { advanceByCm, advanceByPixels, resetPrintState } from './scroll-printer.service';
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -12,11 +12,16 @@ async function handleRequest(requestId: string, action: string, payload: any): P
   try {
     switch (action) {
       case 'scroll': {
-        const { deltaY } = payload;
-        if (typeof deltaY !== 'number') {
-          return { error: 'deltaY must be a number' };
+        const { deltaY, deltaCm } = payload as { deltaY?: unknown; deltaCm?: unknown };
+        const cm = typeof deltaCm === 'number' && Number.isFinite(deltaCm) ? deltaCm : null;
+        if (cm !== null && cm > 0) {
+          advanceByCm(cm);
+        } else {
+          if (typeof deltaY !== 'number') {
+            return { error: 'deltaY must be a number when deltaCm is omitted' };
+          }
+          advanceByPixels(deltaY);
         }
-        advanceByPixels(deltaY);
         return { ok: true, queued: true, queueLength: getQueueLength() };
       }
 

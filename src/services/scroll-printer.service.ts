@@ -5,9 +5,9 @@ import { loadContentLines } from './content.service';
 // --- Tuning constants ---
 
 // EPSON thermal printer: 30 dots line spacing at 203 DPI ≈ 3.75mm per line.
-// 1 CSS pixel ≈ 0.2646mm (1/96 inch).
-// At ratio 1.0 → ~14 CSS px per printer line (true 1:1 physical distance).
+// Legacy path: map WebView deltaY (CSS px) to lines via PRINTER_LINE_HEIGHT_PX.
 const PRINTER_LINE_HEIGHT_PX = 14;
+const PRINTER_LINE_SPACING_MM = 3.75;
 
 // Adjusts how much phone scrolling maps to printer output.
 // 1.0 = 1:1 physical distance (scroll 3.75mm on phone → print 3.75mm on paper)
@@ -16,6 +16,7 @@ const PRINTER_LINE_HEIGHT_PX = 14;
 const SCROLL_TO_PRINT_RATIO = 1.0;
 
 const PIXELS_PER_LINE = Math.round(PRINTER_LINE_HEIGHT_PX * SCROLL_TO_PRINT_RATIO);
+const CM_PER_PRINT_LINE = (PRINTER_LINE_SPACING_MM / 10) * SCROLL_TO_PRINT_RATIO;
 
 // Safety cap: max lines printed per single scroll signal
 const MAX_LINES_PER_BATCH = 20;
@@ -29,6 +30,7 @@ const repeatLines = loadContentLines('repeat.txt');
 
 let printCursor = 0;
 let pixelAccumulator = 0;
+let cmAccumulator = 0;
 
 function getLineAtPosition(pos: number): string {
   if (pos < startLines.length) {
@@ -38,13 +40,7 @@ function getLineAtPosition(pos: number): string {
   return repeatLines[offset % repeatLines.length];
 }
 
-export function advanceByPixels(deltaY: number): void {
-  if (deltaY <= 0) return;
-
-  pixelAccumulator += deltaY;
-  let linesToPrint = Math.floor(pixelAccumulator / PIXELS_PER_LINE);
-  pixelAccumulator %= PIXELS_PER_LINE;
-
+function enqueueLines(linesToPrint: number): void {
   if (linesToPrint === 0) return;
   linesToPrint = Math.min(linesToPrint, MAX_LINES_PER_BATCH);
 
@@ -57,11 +53,39 @@ export function advanceByPixels(deltaY: number): void {
   enqueue(() => printLines(lines));
 }
 
+/** Scroll distance in cm (from client, same formula as receipt / Scroll Stats). */
+export function advanceByCm(deltaCm: number): void {
+  if (deltaCm <= 0 || !Number.isFinite(deltaCm)) return;
+
+  cmAccumulator += deltaCm;
+  let linesToPrint = Math.floor(cmAccumulator / CM_PER_PRINT_LINE);
+  cmAccumulator -= linesToPrint * CM_PER_PRINT_LINE;
+
+  enqueueLines(linesToPrint);
+}
+
+export function advanceByPixels(deltaY: number): void {
+  if (deltaY <= 0) return;
+
+  pixelAccumulator += deltaY;
+  let linesToPrint = Math.floor(pixelAccumulator / PIXELS_PER_LINE);
+  pixelAccumulator %= PIXELS_PER_LINE;
+
+  enqueueLines(linesToPrint);
+}
+
 export function resetPrintState(): void {
   printCursor = 0;
   pixelAccumulator = 0;
+  cmAccumulator = 0;
 }
 
 export function getPrintState() {
-  return { printCursor, pixelAccumulator, pixelsPerLine: PIXELS_PER_LINE };
+  return {
+    printCursor,
+    pixelAccumulator,
+    cmAccumulator,
+    pixelsPerLine: PIXELS_PER_LINE,
+    cmPerPrintLine: CM_PER_PRINT_LINE,
+  };
 }
