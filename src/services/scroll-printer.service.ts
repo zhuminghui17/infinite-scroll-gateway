@@ -72,9 +72,10 @@ export function advanceByCm(deltaCm: number): void {
 }
 
 export function advanceByPixels(deltaY: number): void {
-  if (deltaY <= 0) return;
+  const px = Math.abs(deltaY);
+  if (px <= 0 || !Number.isFinite(px)) return;
 
-  pixelAccumulator += deltaY;
+  pixelAccumulator += px;
   let linesToPrint = Math.floor(pixelAccumulator / PIXELS_PER_LINE);
   pixelAccumulator %= PIXELS_PER_LINE;
 
