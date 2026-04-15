@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { printLines } from './printer.service';
 import { buildReceiptLines } from './receipt-builder';
+import { getCurrentSessionMainSet, loadMainContentLines } from './session-content';
+import { resetPrintState } from './scroll-printer.service';
 
 const CONTENTS_DIR = path.join(__dirname, '..', '..', 'contents');
 
@@ -22,7 +24,7 @@ export async function printSessionEndReceipt(
   if (typeof accumulatedDistanceCm !== 'number' || !Number.isFinite(accumulatedDistanceCm)) {
     throw new Error('accumulatedDistanceCm must be a finite number');
   }
-  await printLines(loadContentLines('end.txt'));
+  await printLines(loadMainContentLines(getCurrentSessionMainSet(), 'end.txt'));
   await printLines(
     buildReceiptLines({ scrollDepthCm, accumulatedDistanceCm, durationMs, scrollTouches }),
     { cut: true },
@@ -40,15 +42,17 @@ export interface TestPrintFullOptions {
 
 /** Prints start → repeat (×repeatCount) → end → summary with coherent sample stats. */
 export async function testPrintFullSession(options: TestPrintFullOptions = {}): Promise<void> {
+  resetPrintState();
+  const set = getCurrentSessionMainSet();
   const repeatCount = Math.max(0, options.repeatCount ?? 1);
   const durationMs = options.durationMs ?? 60_000;
   const signalCount = 1 + repeatCount;
   const scrollDepthCm = options.scrollDepthCm ?? 120;
   const scrollTouches = options.scrollTouches ?? signalCount * 12;
 
-  await printLines(loadContentLines('start.txt'));
+  await printLines(loadMainContentLines(set, 'start.txt'));
   for (let i = 0; i < repeatCount; i++) {
-    await printLines(loadContentLines('repeat.txt'));
+    await printLines(loadMainContentLines(set, 'repeat.txt'));
   }
   await printSessionEndReceipt(durationMs, scrollDepthCm, scrollTouches, scrollDepthCm);
 }

@@ -1,6 +1,6 @@
 import { enqueue } from './printer.service';
 import { printLines } from './printer.service';
-import { loadContentLines } from './content.service';
+import { pickNewSessionContentSet } from './session-content';
 
 // --- Tuning constants ---
 
@@ -21,10 +21,17 @@ const CM_PER_PRINT_LINE = (PRINTER_LINE_SPACING_MM / 10) * SCROLL_TO_PRINT_RATIO
 // Safety cap: max lines printed per single scroll signal
 const MAX_LINES_PER_BATCH = 20;
 
-// --- Content ---
+// --- Content (one of main/{cloud,money,surf} per session) ---
 
-const startLines = loadContentLines('start.txt');
-const repeatLines = loadContentLines('repeat.txt');
+let startLines: string[] = [];
+let repeatLines: string[] = [];
+
+function applySessionLines(pick: { startLines: string[]; repeatLines: string[] }): void {
+  startLines = pick.startLines;
+  repeatLines = pick.repeatLines;
+}
+
+applySessionLines(pickNewSessionContentSet());
 
 // --- State ---
 
@@ -78,6 +85,7 @@ export function resetPrintState(): void {
   printCursor = 0;
   pixelAccumulator = 0;
   cmAccumulator = 0;
+  applySessionLines(pickNewSessionContentSet());
 }
 
 export function getPrintState() {
