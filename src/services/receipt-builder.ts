@@ -177,7 +177,7 @@ function displacementPool(scrollDepthCm: number, minutes: number): ReceiptKV[] {
     candidates.push({ label: 'RUN (NOT COMPLETED)', value: `${miles.toFixed(2)} mi` });
   }
   candidates.push({ label: 'PAGES (NOT READ)', value: `${(minutes * 0.8).toFixed(1)}` });
-  candidates.push({ label: 'SUNLIGHT (NOT SEEN)', value: 'negligible' });
+  candidates.push({ label: 'SUNLIGHT (NOT SEEN)', value: 'minimal' });
   return candidates;
 }
 
